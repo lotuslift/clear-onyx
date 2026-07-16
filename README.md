@@ -44,4 +44,9 @@ the continuous carrier, S₆ reader, D₄ auditor, or every possible signal clie
 
 ## Version
 
-`v0.1.0` — initial public reference implementation.
+        `v0.1.0` — initial public reference implementation.
+
+## Rights
+
+Copyright © 2026 Anthony V. Coppa. No license for reuse or redistribution
+has yet been granted.

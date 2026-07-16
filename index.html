@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clear_Onyx × Residual Recognition — Signal Adapter Lab</title>
+<style>
+:root{
+  --bg:#0a0c10;--panel:#11151c;--panel2:#151a22;--border:#252b35;
+  --text:#e8e4d6;--muted:#8e96a3;--accent:#d7b36a;--warm:#d7b36a;
+  --cool:#7fa4c4;--ok:#9cc7a4;--bad:#d58b8b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+body{display:grid;place-items:center;padding:18px}
+main{width:min(1240px,100%)}
+header{margin-bottom:12px}
+h1{font-size:17px;margin:0 0 6px}
+.sub{font-size:12px;color:var(--muted)}
+.dual{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(340px,.75fr);gap:12px}
+@media(max-width:900px){.dual{grid-template-columns:1fr}}
+.panel{border:1px solid var(--border);border-radius:16px;background:var(--panel);padding:12px}
+.stage{background:#000;border-radius:12px;overflow:hidden;display:grid;place-items:center}
+canvas{display:block;max-width:100%}
+.controls{display:flex;gap:9px;align-items:end;flex-wrap:wrap;margin-top:12px}
+label{display:grid;gap:5px;color:var(--muted);font-size:11px}
+input,select,button{
+  border:1px solid var(--border);border-radius:9px;background:var(--panel2);
+  color:var(--text);padding:8px 9px;font:inherit
+}
+input[type="range"]{width:220px}
+input[type="number"]{width:110px}
+button{cursor:pointer}
+button.primary{background:var(--accent);border-color:var(--accent);color:#18130a}
+button:disabled{opacity:.6;cursor:default}
+.readout{font-size:12px;line-height:1.55;white-space:pre-wrap;margin-top:10px;color:#c7cbd0}
+.math{font-size:12px;line-height:1.6;color:#d8d6ce}
+.tag{display:inline-block;padding:3px 7px;border:1px solid var(--border);border-radius:999px;color:var(--muted);font-size:11px}
+.ok{color:var(--ok)} .bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>Clear_Onyx × Residual Recognition — Signal Adapter Lab</h1>
+  <div class="sub">Pupil writes. S₆ reads. R² audits. Signal adapters expose one common non-trivial mirror-return interface.</div>
+</header>
+
+<section class="panel math" style="margin-bottom:12px">
+  <b>Declared representation</b><br>
+  ℛ<sub>⊥</sub>(σ,p) = ℛ<sub>surface</sub>(σ) ⊕ ℛ<sub>complex</sub>(σ,p)<br>
+  σ = (frame, γ, ε, μ) — μ is EMA session memory, not the central residue λ of the paper, &nbsp; p=(ρ,θ), &nbsp; Jp=(ρ,−θ)<br>
+  Z<sub>Φ</sub>(p;σ)=exp(iψ), &nbsp; ψ=2πΦρ′−θ+γ [+ε]<br>
+  Gate<sub>J</sub>(p)=1 iff p and Jp both lie in the current punctured domain.<br>
+  S₆(Z)=(Re(Zū₀),…,Re(Zū₅)), &nbsp; uₖ=exp(ikπ/3).<br>
+  The pupil is circular at zero memory; retained session memory μ deforms it dipolarly. S₆ modulates only the admitted blue phase readout.
+</section>
+
+<div class="dual">
+  <section class="panel">
+    <div class="tag">FLAT MANIFOLD / DISC OPERATOR</div>
+    <div class="stage" style="margin-top:10px">
+      <canvas id="fieldCanvas" width="512" height="512"></canvas>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="tag">COMPLEX FIELD / OPERATOR READ</div>
+    <div class="stage" style="margin-top:10px;background:#0b0e13">
+      <canvas id="complexCanvas" width="420" height="420"></canvas>
+    </div>
+    <div id="complexReadout" class="readout"></div>
+  </section>
+</div>
+
+<section class="panel" style="margin-top:12px">
+  <div class="controls">
+    <button id="play" class="primary">PLAY ONE CADENCE</button>
+    <button id="resetFrame">RESET FRAME</button>
+    <button id="completeRun">WRITE SESSION MEMORY μ</button>
+    <button id="resetMemory">RESET μ</button>
+    <button id="scopeToggle">S₆ READER: ON</button>
+
+    <label>frame
+      <input id="frame" type="range" min="0" max="120" value="0">
+    </label>
+    <label>ρ
+      <input id="rho" type="number" min="0" max="1" step="0.001" value="0.50">
+    </label>
+    <label>θ°
+      <input id="theta" type="number" min="-180" max="180" step="1" value="45">
+    </label>
+    <label>phase
+      <select id="phaseMode">
+        <option value="turn">TURN γ</option>
+        <option value="return" selected>RETURN γ+ε</option>
+      </select>
+    </label>
+  </div>
+  <div id="stateReadout" class="readout"></div>
+</section>
+
+
+<section class="panel" style="margin-top:12px">
+  <div class="tag">MODULE R² / VERIFIED D₄ LANDMARK AUDITOR</div>
+  <div class="controls" style="margin-top:10px">
+    <label>verified landmark x
+      <select id="rrState">
+        <option value="0">I — identity</option>
+        <option value="4">H — Π</option>
+        <option value="6">V — J²Π</option>
+        <option value="2">R180 — J²</option>
+      </select>
+    </label>
+    <label>transport g
+      <select id="rrTransport">
+        <option value="0">I</option>
+        <option value="1">J</option>
+        <option value="2">J²</option>
+        <option value="3">J³</option>
+        <option value="4">Π</option>
+        <option value="5">JΠ</option>
+        <option value="6">J²Π</option>
+        <option value="7">J³Π</option>
+      </select>
+    </label>
+    <button id="rrCycle" type="button">NEXT TRANSPORT</button>
+  </div>
+  <pre id="rrReadout" class="readout" style="background:var(--panel2);padding:10px;border-radius:8px;border:1px solid var(--border);"></pre>
+</section>
+
+
+<section class="panel" style="margin-top:12px">
+  <div class="tag">SIGNAL ADAPTER / RETURN INTERFACE</div>
+  <div class="math" style="margin-top:8px">
+    Δ = mirrorValue(sample(p)) − sample(Jp). For the Clear_Onyx phasor:
+    Δ = conjugate(Z(p)) − Z(Jp).
+  </div>
+  <div class="controls" style="margin-top:10px">
+    <label>signal client
+      <select id="signalAdapter">
+        <option value="clearOnyx">Clear_Onyx complex probe</option>
+        <option value="centerRelative">Center-relative unit phasor</option>
+      </select>
+    </label>
+    <label>return tolerance
+      <input id="signalTolerance" type="number" min="0" max="1" step="0.000001" value="0.000001">
+    </label>
+  </div>
+  <pre id="signalReadout" class="readout" style="background:var(--panel2);padding:10px;border-radius:8px;border:1px solid var(--border);"></pre>
+</section>
+
+<script>
+// ============================================================
+// MODULE A — calibrated Clear_Onyx transport
+// ============================================================
+const frames=121;
+function smoothstep(x){const t=Math.max(0,Math.min(1,x));return t*t*(3-2*t);}
+function sample(i){
+  const p=i/(frames-1); let q=Math.floor(p*8); if(q>7)q=7;
+  const local=(q===7&&p>=1)?1:p*8-q;
+  const isBloom=q===1||q===3||q===5||q===7;
+  const motion=isBloom?0:smoothstep(local);
+  return {p,q,local,motion,bloom:isBloom?smoothstep(local):0};
+}
+function carry(t,a,b,c,k){const folded=c+(a-c)*(1-k*t);return (1-t)*folded+t*b;}
+function windowedT(t,a,b){if(t<=a)return 0;if(t>=b)return 1;return (t-a)/(b-a);}
+const cx=11,cy=3,scale=cy/cx,COL=0,ROW=0;
+const mx=22-COL,my=6-ROW,dCol=cx+(ROW-cy)*scale,dRow=cy+(COL-cx)*scale;
+const specs={
+  TURN:{xw:[0,1],yw:[0,1],xs:COL,xe:COL,ys:ROW,ye:ROW,k:0},
+  MIRROR:{xw:[0,.5],yw:[.5,1],xs:COL,xe:mx,ys:ROW,ye:my,k:0},
+  APERTURE:{xw:[0,1],yw:[0,1],xs:mx,xe:dCol,ys:my,ye:dRow,k:0},
+  FOLD:{xw:[0,1],yw:[0,1],xs:dCol,xe:COL,ys:dRow,ye:ROW,k:.55}
+};
+const cadenceIsHold=[false,true,false,true,false,true,false,true];
+function fieldPosition(s){
+  const name=["TURN","TURN","MIRROR","MIRROR","APERTURE","APERTURE","FOLD","FOLD"][s.q];
+  const spec=specs[name],t=cadenceIsHold[s.q]?1:s.motion;
+  return {
+    x:carry(windowedT(t,spec.xw[0],spec.xw[1]),spec.xs,spec.xe,cx,spec.k),
+    y:carry(windowedT(t,spec.yw[0],spec.yw[1]),spec.ys,spec.ye,cy,spec.k)
+  };
+}
+const MIRROR_MAX_DX=mx-COL,TOTAL_SWEEP=180;
+function normalizeDegrees(a){return ((a+180)%360+360)%360-180;}
+function normalizeRadians(a){return Math.atan2(Math.sin(a),Math.cos(a));}
+const transportAngleTable=[];
+for(let i=0;i<frames;i++){
+  const pos=fieldPosition(sample(i));
+  transportAngleTable.push(((pos.x-COL)/MIRROR_MAX_DX)*TOTAL_SWEEP);
+}
+const LAG_FRAMES=5,lagResidueTable=[];
+for(let i=0;i<frames;i++){
+  const j=Math.max(0,i-LAG_FRAMES);
+  lagResidueTable.push(normalizeDegrees(transportAngleTable[j]-transportAngleTable[i]));
+}
+let EPS_MAX=0; for(const e of lagResidueTable)EPS_MAX=Math.max(EPS_MAX,Math.abs(e));
+const DEG2RAD=Math.PI/180;
+
+// ============================================================
+// MODULE B — corrected 137-mode spectral carrier
+// ============================================================
+const SIZE=512,DISK_R=250,MODES=137,Lparam=5.0,PHI=(1+Math.sqrt(5))/2;
+function syntheticWeight(j){return ((j%2===0||j%3===0)?0:Math.log(j+1))/Math.sqrt(j);}
+function carrierWeight(j){const alpha=j*Math.PI/Lparam;return Math.log((alpha+1e-3)/(2*Math.PI));}
+
+const RLUT_N=2048,THETA_N=1024,RGRID_N=512;
+const carrierLUT=new Uint8ClampedArray(RLUT_N);
+const angularLUT=new Uint8ClampedArray(RGRID_N*THETA_N);
+
+(function precompute(){
+  for(let ri=0;ri<RLUT_N;ri++){
+    const rho=Math.max(1e-5,(ri+0.5)/RLUT_N); let c=0;
+    for(let j=1;j<=MODES;j++){
+      const p=Math.sin(j*Math.PI*rho)/(j*Math.PI);
+      c+=carrierWeight(j)*p*p;
+    }
+    carrierLUT[ri]=Math.round((Math.sin(c)*0.5+0.5)*255);
+  }
+})();
+
+// Angular LUT — portable precompute. Two changes vs the naive loop:
+// (1) the inner sum uses the sine recurrence
+//     sin((j+1)θ) = 2cosθ·sin(jθ) − sin((j−1)θ)
+//     — algebraically identical values, no Math.sin in the inner loop;
+// (2) rows are computed in chunks on setTimeout so startup never blocks
+//     the main thread (the earlier frozen-applet failure mode).
+let angularReady=false;
+function computeAngularRows(from,to){
+  for(let ri=from;ri<to;ri++){
+    const rho=Math.max(1e-5,(ri+0.5)/RGRID_N);
+    const radial=new Float64Array(MODES);
+    for(let j=1;j<=MODES;j++)radial[j-1]=syntheticWeight(j)*Math.sin(j*Math.PI*rho)/(j*Math.PI);
+    for(let ti=0;ti<THETA_N;ti++){
+      const theta=-Math.PI+2*Math.PI*(ti+0.5)/THETA_N;
+      const twoCos=2*Math.cos(theta);
+      let sPrev=0,sCur=Math.sin(theta),a=0;
+      for(let j=0;j<MODES;j++){
+        a+=radial[j]*sCur;
+        const sNext=twoCos*sCur-sPrev;
+        sPrev=sCur;sCur=sNext;
+      }
+      angularLUT[ri*THETA_N+ti]=Math.round((Math.sin(a-theta)*0.5+0.5)*255);
+    }
+  }
+}
+
+function carrierAt(rho){
+  let c=0;
+  for(let j=1;j<=MODES;j++){
+    const p=Math.sin(j*Math.PI*rho)/(j*Math.PI);
+    c+=carrierWeight(j)*p*p;
+  }
+  return c;
+}
+function angularAt(rho,theta){
+  let a=0;
+  for(let j=1;j<=MODES;j++){
+    a+=syntheticWeight(j)*(Math.sin(j*Math.PI*rho)/(j*Math.PI))*Math.sin(j*theta);
+  }
+  return a-theta;
+}
+
+// ============================================================
+// Static disc geometry
+// ============================================================
+const nPix=SIZE*SIZE;
+const uArr=new Float32Array(nPix),thetaArr=new Float32Array(nPix);
+const thetaIdxArr=new Uint16Array(nPix),inDisk=new Uint8Array(nPix);
+(function geometry(){
+  for(let y=0;y<SIZE;y++){
+    const py=y-SIZE/2+0.5;
+    for(let x=0;x<SIZE;x++){
+      const px=x-SIZE/2+0.5,idx=y*SIZE+x,u=Math.hypot(px,py)/DISK_R;
+      if(u>1)continue;
+      inDisk[idx]=1;uArr[idx]=u;
+      const th=Math.atan2(py,px);thetaArr[idx]=th;
+      let ti=Math.floor((th+Math.PI)/(2*Math.PI)*THETA_N);
+      if(ti>=THETA_N)ti=THETA_N-1;
+      thetaIdxArr[idx]=ti;
+    }
+  }
+})();
+
+// ============================================================
+// SESSION MEMORY μ
+// μ is an EMA circular-mean session memory. Its direction is a BUILD
+// CONSTANT (arg = 113.12°: the activity-weighted mean of the fixed
+// transport table — every run writes the same direction; only |μ|
+// grows, as 1−(1−a)^n). μ is NOT the central residue λ of the
+// return/residue/transport paper (multiplicative recursion in a
+// central kernel). That mechanism remains unbuilt; the symbol λ
+// stays reserved for it.
+// ============================================================
+const ETA=0.32;
+let muX=0,muY=0;
+let runX=0,runY=0,runActivity=0;
+for(let i=0;i<frames;i++){
+  const w=EPS_MAX>0?Math.abs(lagResidueTable[i])/EPS_MAX:0;
+  const g=transportAngleTable[i]*DEG2RAD;
+  runX+=w*Math.cos(g);runY+=w*Math.sin(g);runActivity+=w;
+}
+const A_RUN=runActivity/frames,runNorm=Math.hypot(runX,runY);
+const RUN_UX=runNorm>1e-12?runX/runNorm:1,RUN_UY=runNorm>1e-12?runY/runNorm:0;
+function writeSessionMemory(){
+  const a=Math.max(0,Math.min(1,ETA*A_RUN));
+  muX=(1-a)*muX+a*RUN_UX;
+  muY=(1-a)*muY+a*RUN_UY;
+}
+function sessionMemoryMag(){return Math.min(1,Math.hypot(muX,muY));}
+function sessionMemoryAngle(){return Math.atan2(muY,muX);}
+
+// ============================================================
+// Puncture and gate
+// ============================================================
+const RHO0=0.05,KAPPA_EPS=0.18,KAPPA_MU=0.12,WAVE_DEPTH=0.32;
+function rhoInner(frame,theta){
+  const transient=EPS_MAX>0?Math.abs(lagResidueTable[frame])/EPS_MAX:0;
+  const lm=sessionMemoryMag();
+  if(lm<1e-12)return RHO0+KAPPA_EPS*transient;
+  return RHO0+KAPPA_EPS*transient+
+    KAPPA_MU*lm*(1+WAVE_DEPTH*Math.cos(theta-sessionMemoryAngle()));
+}
+const MAX_INNER=0.48; // single shared guard: keeps the annular span positive
+function pupilInner(frame,theta){return Math.min(MAX_INNER,Math.max(0,rhoInner(frame,theta)));}
+function gate(frame,rho,theta){return rho>=pupilInner(frame,theta)&&rho<=1;}
+
+// ============================================================
+// Shared state → orthogonal reads
+// ============================================================
+function phaseShift(frame,mode){
+  const g=transportAngleTable[frame]*DEG2RAD;
+  const e=lagResidueTable[frame]*DEG2RAD;
+  return mode==="return"?g+e:g;
+}
+let scopeEnabled=true;
+const SIXTH_TURN=Math.PI/3;
+const HEX_APOTHEM=Math.cos(Math.PI/6);
+
+function sixSupportValues(psi){
+  const values=[];
+  for(let k=0;k<6;k++) values.push(Math.cos(psi-k*SIXTH_TURN));
+  return values;
+}
+function activeSupport(values){
+  let k=0;
+  for(let i=1;i<values.length;i++) if(values[i]>values[k]) k=i;
+  return k;
+}
+const SCOPE_GAIN=0.22;
+const SCOPE_SHARPNESS=3.0;
+
+function scopeReaderGain(psi,theta){
+  if(!scopeEnabled)return 1;
+  const supports=sixSupportValues(psi);
+  const weights=supports.map(v=>Math.pow(Math.max(0,v),SCOPE_SHARPNESS));
+  const sum=weights.reduce((a,b)=>a+b,0)+1e-12;
+
+  // Fixed six-direction reader on the manifold.
+  let read=0;
+  for(let k=0;k<6;k++){
+    const uk=k*SIXTH_TURN;
+    read+=(weights[k]/sum)*Math.cos(theta-uk);
+  }
+
+  // Convert signed reader output to a restrained multiplicative gain.
+  return Math.max(0.72,Math.min(1.28,1+SCOPE_GAIN*read));
+}
+function mappedRadius(frame,rho,theta){
+  // The pupil writes the domain geometry. S₆ does not alter admissibility.
+  // Uses the SAME pupilInner as gate() — one admissibility source.
+  const inner=pupilInner(frame,theta);
+  if(rho<inner)return null;
+  return Math.min(1,Math.max(1e-5,(rho-inner)/(1-inner)));
+}
+function complexRead(frame,rho,theta,mode){
+  const rp=mappedRadius(frame,rho,theta);
+  const admitted=rp!==null;
+  if(!admitted)return {admitted:false,rp:null};
+  const psi=2*Math.PI*PHI*rp-theta+phaseShift(frame,mode);
+  return {admitted:true,rp,psi,z:{re:Math.cos(psi),im:Math.sin(psi)}};
+}
+
+// ============================================================
+// Surface renderer
+// ============================================================
+const fieldCanvas=document.getElementById("fieldCanvas");
+const fieldCtx=fieldCanvas.getContext("2d");
+const imgData=fieldCtx.createImageData(SIZE,SIZE),pixels=imgData.data;
+
+function renderSurface(frame,mode){
+  const shift=phaseShift(frame,mode);
+  for(let idx=0;idx<nPix;idx++){
+    const o=idx*4;
+    if(!inDisk[idx]){
+      pixels[o]=0;pixels[o+1]=0;pixels[o+2]=0;pixels[o+3]=255;continue;
+    }
+    const theta=thetaArr[idx];
+    const rp=mappedRadius(frame,uArr[idx],theta);
+    if(rp===null){
+      pixels[o]=0;pixels[o+1]=0;pixels[o+2]=0;pixels[o+3]=255;continue;
+    }
+    const ri=Math.min(RLUT_N-1,Math.floor(rp*RLUT_N));
+    const gi=Math.min(RGRID_N-1,Math.floor(rp*RGRID_N));
+    pixels[o]=carrierLUT[ri];
+    pixels[o+1]=angularLUT[gi*THETA_N+thetaIdxArr[idx]];
+
+    const psi=2*Math.PI*PHI*rp-theta+shift;
+    const baseBlue=(Math.sin(psi)*.5+.5);
+    const scopedBlue=Math.max(0,Math.min(1,baseBlue*scopeReaderGain(psi,theta)));
+    pixels[o+2]=Math.round(scopedBlue*255);
+    pixels[o+3]=255;
+  }
+  fieldCtx.putImageData(imgData,0,0);
+}
+
+// ============================================================
+// Complex-plane renderer
+// ============================================================
+const complexCanvas=document.getElementById("complexCanvas");
+const cctx=complexCanvas.getContext("2d");
+const CW=complexCanvas.width,CH=complexCanvas.height,CCX=CW/2,CCY=CH/2,SCALE=145;
+
+function drawAxes(scopeValues=null,activeK=-1){
+  cctx.clearRect(0,0,CW,CH);
+  cctx.fillStyle="#0b0e13";cctx.fillRect(0,0,CW,CH);
+  cctx.strokeStyle="#252b35";cctx.lineWidth=1;
+  cctx.beginPath();cctx.moveTo(20,CCY);cctx.lineTo(CW-20,CCY);
+  cctx.moveTo(CCX,20);cctx.lineTo(CCX,CH-20);cctx.stroke();
+  cctx.strokeStyle="#46505d";
+  cctx.beginPath();cctx.arc(CCX,CCY,SCALE,0,2*Math.PI);cctx.stroke();
+
+  if(scopeEnabled){
+    for(let k=0;k<6;k++){
+      const a=k*SIXTH_TURN;
+      const strength=scopeValues?Math.max(0,scopeValues[k]):0;
+      cctx.strokeStyle=k===activeK?"#d7b36a":`rgba(127,164,196,${(0.16+0.28*strength).toFixed(3)})`;
+      cctx.lineWidth=k===activeK?2:1;
+      cctx.beginPath();
+      cctx.moveTo(CCX,CCY);
+      cctx.lineTo(CCX+SCALE*Math.cos(a),CCY-SCALE*Math.sin(a));
+      cctx.stroke();
+      cctx.fillStyle=k===activeK?"#d7b36a":"#69717d";
+      cctx.font="11px ui-monospace";
+      cctx.fillText(String(k),CCX+(SCALE+13)*Math.cos(a)-3,CCY-(SCALE+13)*Math.sin(a)+4);
+    }
+  }
+
+  cctx.fillStyle="#69717d";cctx.font="12px ui-monospace";
+  cctx.fillText("Re",CW-35,CCY-7);cctx.fillText("Im",CCX+7,28);
+}
+function drawVector(z,color,label,dashed=false){
+  cctx.save();
+  cctx.strokeStyle=color;cctx.fillStyle=color;cctx.lineWidth=2;
+  if(dashed)cctx.setLineDash([5,5]);
+  const x=CCX+SCALE*z.re,y=CCY-SCALE*z.im;
+  cctx.beginPath();cctx.moveTo(CCX,CCY);cctx.lineTo(x,y);cctx.stroke();
+  cctx.setLineDash([]);
+  cctx.beginPath();cctx.arc(x,y,5,0,2*Math.PI);cctx.fill();
+  cctx.font="12px ui-monospace";cctx.fillText(label,x+8,y-8);
+  cctx.restore();
+}
+function renderComplex(frame,rho,theta,mode){
+  const a=complexRead(frame,rho,theta,mode);
+  const b=complexRead(frame,rho,-theta,mode);
+  const supports=a.admitted?sixSupportValues(a.psi):null;
+  const activeK=supports?activeSupport(supports):-1;
+  drawAxes(supports,activeK);
+  if(a.admitted)drawVector(a.z,"#d7b36a","Z(p)");
+  if(b.admitted)drawVector(b.z,"#7fa4c4","Z(Jp)",true);
+
+  if(a.admitted&&b.admitted){
+    cctx.strokeStyle="#9cc7a4";cctx.lineWidth=1.5;
+    cctx.beginPath();
+    cctx.moveTo(CCX+SCALE*a.z.re,CCY-SCALE*a.z.im);
+    cctx.lineTo(CCX+SCALE*b.z.re,CCY-SCALE*b.z.im);
+    cctx.stroke();
+  }
+
+  const gateJ=gate(frame,rho,theta)&&gate(frame,rho,-theta);
+  const phasePair=(a.admitted&&b.admitted)?normalizeRadians(b.psi-a.psi):NaN;
+  const delta=(a.admitted&&b.admitted)?
+    {re:b.z.re-a.z.re,im:b.z.im-a.z.im}:null;
+
+  document.getElementById("complexReadout").textContent=
+`Gate_J(p) = ${gateJ ? "1 / admitted" : "0 / refused"}
+ρ_inner(θ)  = ${rhoInner(frame,theta).toFixed(6)}
+ρ_inner(-θ) = ${rhoInner(frame,-theta).toFixed(6)}
+Z(p)        = ${a.admitted ? `${a.z.re.toFixed(6)} ${a.z.im>=0?"+":"-"} ${Math.abs(a.z.im).toFixed(6)}i` : "undefined on current domain"}
+Z(Jp)       = ${b.admitted ? `${b.z.re.toFixed(6)} ${b.z.im>=0?"+":"-"} ${Math.abs(b.z.im).toFixed(6)}i` : "undefined on current domain"}
+Δ_J phase   = ${Number.isFinite(phasePair)?phasePair.toFixed(6):"refused"}
+ΔZ          = ${delta ? `${delta.re.toFixed(6)} ${delta.im>=0?"+":"-"} ${Math.abs(delta.im).toFixed(6)}i` : "refused"}
+S₆ active    = ${supports ? `${activeK} / ${(activeK*60)}°` : "refused"}
+S₆ values    = ${supports ? supports.map(v=>v.toFixed(3)).join("  ") : "refused"}
+√3/2 ref     = ${HEX_APOTHEM.toFixed(6)}`;
+}
+
+
+
+// ============================================================
+// SIGNAL ADAPTER & RETURN INTERFACE
+//
+// A signal client supplies five offices:
+//   sample(context)
+//   mirror(context)            — value-side involution
+//   mirrorCoordinate(context)  — coordinate-side involution (default θ→−θ);
+//                                a zeta client mirror R(s)=1−conj(s) arrives
+//                                through this door, not by rewriting the engine
+//   admissibility(context)
+//   returnDifference(context)
+//
+// The mirror engine does not know which signal it is reading.
+// No adapter feeds back into transport, pupil geometry, S₆, or R².
+// ============================================================
+function cAdd(a,b){return {re:a.re+b.re,im:a.im+b.im};}
+function cSub(a,b){return {re:a.re-b.re,im:a.im-b.im};}
+function cConj(a){return {re:a.re,im:-a.im};}
+function cAbs(a){return Math.hypot(a.re,a.im);}
+function cArg(a){return Math.atan2(a.im,a.re);}
+function cFmt(a){
+  return `${a.re.toFixed(6)} ${a.im>=0?"+":"-"} ${Math.abs(a.im).toFixed(6)}i`;
+}
+
+class SignalAdapter {
+  constructor(name){this.name=name;}
+  sample(_ctx){throw new Error("sample(context) not implemented");}
+  mirror(_ctx){throw new Error("mirror(context) not implemented");}
+  admissibility(_ctx){throw new Error("admissibility(context) not implemented");}
+  mirrorCoordinate(ctx){return {...ctx,theta:-ctx.theta};}
+  returnDifference(ctx){
+    const left=this.mirror(ctx);
+    const right=this.sample(this.mirrorCoordinate(ctx));
+    if(!left.admitted||!right.admitted){
+      return {admitted:false,delta:null,left,right};
+    }
+    return {admitted:true,delta:cSub(left.value,right.value),left,right};
+  }
+}
+
+class ClearOnyxSignalAdapter extends SignalAdapter {
+  constructor(){super("Clear_Onyx complex probe");}
+  sample(ctx){
+    const r=complexRead(ctx.frame,ctx.rho,ctx.theta,ctx.mode);
+    return r.admitted
+      ? {admitted:true,value:r.z,amplitude:cAbs(r.z),phase:cArg(r.z)}
+      : {admitted:false,value:null,amplitude:null,phase:null};
+  }
+  mirror(ctx){
+    // Value-side mirror: transform the source value by complex conjugation.
+    // The base returnDifference() then compares this against the independently
+    // sampled mirrored coordinate Z(Jp).
+    const base=this.sample(ctx);
+    return base.admitted
+      ? {
+          admitted:true,
+          value:cConj(base.value),
+          amplitude:base.amplitude,
+          phase:-base.phase
+        }
+      : {admitted:false,value:null,amplitude:null,phase:null};
+  }
+  admissibility(ctx){
+    return gate(ctx.frame,ctx.rho,ctx.theta)&&gate(ctx.frame,ctx.rho,-ctx.theta);
+  }
+}
+
+class CenterRelativeSignalAdapter extends SignalAdapter {
+  constructor(){super("Center-relative unit phasor");}
+  sample(ctx){
+    // W(θ)=exp(-iθ), after factoring out shared radial/temporal center phase.
+    const value={re:Math.cos(ctx.theta),im:-Math.sin(ctx.theta)};
+    return {admitted:true,value,amplitude:1,phase:-ctx.theta};
+  }
+  mirror(ctx){
+    // W(Jp)=exp(+iθ)=conj(W(p)).
+    const base=this.sample(ctx);
+    const value=cConj(base.value);
+    return {admitted:true,value,amplitude:1,phase:ctx.theta};
+  }
+  admissibility(_ctx){return true;}
+}
+
+const SIGNAL_ADAPTERS={
+  clearOnyx:new ClearOnyxSignalAdapter(),
+  centerRelative:new CenterRelativeSignalAdapter()
+};
+
+function auditSignalAdapter(adapter,ctx,tolerance){
+  const base=adapter.sample(ctx);
+  const ret=adapter.returnDifference(ctx);
+  if(!adapter.admissibility(ctx)||!base.admitted||!ret.admitted){
+    return {status:"REFUSED",adapter,base,ret,residue:Infinity};
+  }
+  const residue=cAbs(ret.delta);
+  let status="BROKEN";
+  if(residue===0)status="CLOSED";
+  else if(residue<=tolerance)status="RESIDUAL";
+  return {status,adapter,base,ret,residue};
+}
+
+function renderSignalAdapter(){
+  const ctx=currentInputs();
+  const key=document.getElementById("signalAdapter").value;
+  const tolerance=Math.max(0,Number(document.getElementById("signalTolerance").value)||0);
+  const adapter=SIGNAL_ADAPTERS[key];
+  const audit=auditSignalAdapter(adapter,ctx,tolerance);
+
+  let out=
+`client = ${adapter.name}
+interface = sample · mirror · admissibility · returnDifference
+status = ${audit.status}
+regime = ${Math.abs(pupilInner(ctx.frame,ctx.theta)-pupilInner(ctx.frame,-ctx.theta))>1e-12?"μ-asymmetric domain":"J-symmetric domain"}
+tolerance = ${tolerance.toExponential(3)}`;
+
+  if(audit.status==="REFUSED"){
+    out+=`\nadmissibility = false
+return comparison = not posed`;
+  }else{
+    out+=`
+sample value = ${cFmt(audit.base.value)}
+sample amplitude = ${audit.base.amplitude.toFixed(6)}
+sample phase = ${audit.base.phase.toFixed(6)} rad
+mirror(left) = ${cFmt(audit.ret.left.value)}
+right sample = ${cFmt(audit.ret.right.value)}
+Δ return = ${cFmt(audit.ret.delta)}
+|Δ| = ${audit.residue.toExponential(6)}`;
+  }
+
+  out+=`
+
+office rule: the adapter translates a signal into the common audit grammar.
+removing this module changes no carrier, geometry, reader, or theorem.`;
+
+  document.getElementById("signalReadout").textContent=out;
+}
+
+// ============================================================
+// MODULE R² — exact JavaScript port of the closed D₄ keystone
+// and Residual Recognition Under Transport.
+// This module reads only manually selected, independently verified
+// Clear_Onyx landmarks. It does not quantize continuous frames.
+// ============================================================
+function d4Normalize(k,e){
+  return {k:((k%4)+4)%4,e:((e%2)+2)%2};
+}
+function d4Decode(code){
+  return (code>=0&&code<=7)?d4Normalize(code%4,Math.floor(code/4)):null;
+}
+function d4Encode(x){return x.k+4*x.e;}
+function d4Equal(a,b){return a.k===b.k&&a.e===b.e;}
+function d4Multiply(a,b){
+  const sign=a.e===0?1:-1;
+  return d4Normalize(a.k+sign*b.k,a.e+b.e);
+}
+function d4Inverse(x){return x.e===0?d4Normalize(-x.k,0):x;}
+function d4Class(x){
+  if(x.k===0&&x.e===0)return "Exact";
+  if(x.k===2&&x.e===0)return "BaseCentral";
+  return "Residual";
+}
+function d4PhaseReadout(c){
+  if(c==="Exact")return "0";
+  if(c==="BaseCentral")return "π";
+  return "non-canonical residual";
+}
+function d4Name(x){
+  const names=["I","J","J²","J³","Π","JΠ","J²Π","J³Π"];
+  return names[d4Encode(x)];
+}
+function rrTransport(x,g){return d4Multiply(x,g);}
+function rrStatus(x,g){
+  const returned=rrTransport(x,g);
+  const startClass=d4Class(x),returnClass=d4Class(returned);
+  if(d4Equal(returned,x))return {name:"STATIC-PRESERVED",returned,startClass,returnClass};
+  if(startClass===returnClass)return {name:"MOTION-PRESERVED",returned,startClass,returnClass};
+  return {name:"CLASS-BROKEN",returned,startClass,returnClass};
+}
+function rrCensus(x){
+  const out={staticPreserved:0,motionPreserved:0,classBroken:0};
+  for(let code=0;code<8;code++){
+    const s=rrStatus(x,d4Decode(code));
+    if(s.name==="STATIC-PRESERVED")out.staticPreserved++;
+    else if(s.name==="MOTION-PRESERVED")out.motionPreserved++;
+    else out.classBroken++;
+  }
+  return out;
+}
+function rrAdmitsMotion(x){
+  for(let code=1;code<8;code++){
+    const g=d4Decode(code),s=rrStatus(x,g);
+    if(s.name==="MOTION-PRESERVED")return true;
+  }
+  return false;
+}
+function rrBreakingCoset(x){
+  const xi=d4Inverse(x);
+  return [d4Multiply(xi,d4Decode(0)),d4Multiply(xi,d4Decode(2))];
+}
+function rrSelfCheck(){
+  const I=d4Decode(0),J=d4Decode(1),J2=d4Decode(2),Pi=d4Decode(4);
+  if(!d4Equal(d4Multiply(d4Multiply(d4Multiply(J,J),J),J),I))return false;
+  if(!d4Equal(d4Multiply(Pi,Pi),I))return false;
+  if(!d4Equal(d4Multiply(d4Multiply(Pi,J),Pi),d4Inverse(J)))return false;
+  for(let code=0;code<8;code++){
+    const x=d4Decode(code),c=rrCensus(x);
+    const residual=d4Class(x)==="Residual";
+    if(residual){
+      if(c.staticPreserved!==1||c.motionPreserved!==5||c.classBroken!==2)return false;
+    }else{
+      if(c.staticPreserved!==1||c.motionPreserved!==0||c.classBroken!==7)return false;
+    }
+    if(rrAdmitsMotion(x)!==residual)return false;
+  }
+  return true;
+}
+const RR_SELF_CHECK=rrSelfCheck();
+
+function renderResidualRecognition(){
+  const x=d4Decode(Number(document.getElementById("rrState").value));
+  const g=d4Decode(Number(document.getElementById("rrTransport").value));
+  const s=rrStatus(x,g),c=rrCensus(x);
+  const coset=rrBreakingCoset(x).map(d4Name).join(", ");
+  const recognitionRoom=rrAdmitsMotion(x);
+  document.getElementById("rrReadout").textContent=
+`x = ${d4Name(x)} (${x.k},${x.e})     class(x) = ${s.startClass}
+g = ${d4Name(g)} (${g.k},${g.e})     xg = ${d4Name(s.returned)} (${s.returned.k},${s.returned.e})
+status = ${s.name}
+phase readout: ${d4PhaseReadout(s.returnClass)}
+census over all 8 transports = static ${c.staticPreserved} | motion ${c.motionPreserved} | broken ${c.classBroken}
+non-identical class-preserving room = ${recognitionRoom}
+breaking coset x⁻¹Z(D₄) = {${coset}}
+closed theorem checks = ${RR_SELF_CHECK}
+
+integration rule: only verified landmark x enters R²; continuous Clear_Onyx motion remains unquantized.`;
+}
+
+// ============================================================
+// Runtime
+// ============================================================
+const play=document.getElementById("play");
+const frameSlider=document.getElementById("frame");
+let timer=null,index=0;
+
+function currentInputs(){
+  return {
+    frame:Number(frameSlider.value),
+    rho:Math.max(0,Math.min(1,Number(document.getElementById("rho").value))),
+    theta:Number(document.getElementById("theta").value)*DEG2RAD,
+    mode:document.getElementById("phaseMode").value
+  };
+}
+function renderAll(){
+  if(!angularReady)return; // field not yet precomputed; driver renders on completion
+  const x=currentInputs();index=x.frame;
+  renderSurface(x.frame,x.mode);
+  renderComplex(x.frame,x.rho,x.theta,x.mode);
+  document.getElementById("stateReadout").textContent=
+`frame=${x.frame}   γ=${transportAngleTable[x.frame].toFixed(3)}°   ε=${lagResidueTable[x.frame].toFixed(3)}°
+|μ|=${sessionMemoryMag().toFixed(3)}   arg μ=${(sessionMemoryAngle()/DEG2RAD).toFixed(2)}°   (session memory, not the central residue λ)
+scope S₆=${scopeEnabled?"ON":"OFF"}   exact supports u_k=e^(ikπ/3)
+pupil writes geometry; S₆ reads the admitted phase channel.
+orthogonal rule: surface and complex panels read the same state tuple; neither panel feeds the other.`;
+  renderResidualRecognition();
+  renderSignalAdapter();
+}
+function stop(){
+  if(timer){clearInterval(timer);timer=null;}
+  play.disabled=false;play.textContent="PLAY ONE CADENCE";
+}
+function run(){
+  stop();index=0;frameSlider.value=0;play.disabled=true;play.textContent="PLAYING…";renderAll();
+  timer=setInterval(()=>{
+    index++;frameSlider.value=index;renderAll();
+    if(index>=frames-1)stop();
+  },52);
+}
+
+play.addEventListener("click",run);
+frameSlider.addEventListener("input",()=>{stop();renderAll();});
+document.getElementById("rho").addEventListener("input",renderAll);
+document.getElementById("theta").addEventListener("input",renderAll);
+document.getElementById("phaseMode").addEventListener("change",renderAll);
+document.getElementById("resetFrame").addEventListener("click",()=>{stop();frameSlider.value=0;renderAll();});
+document.getElementById("completeRun").addEventListener("click",()=>{writeSessionMemory();renderAll();});
+document.getElementById("resetMemory").addEventListener("click",()=>{muX=0;muY=0;renderAll();});
+document.getElementById("scopeToggle").addEventListener("click",()=>{
+  scopeEnabled=!scopeEnabled;
+  document.getElementById("scopeToggle").textContent=`S₆ READER: ${scopeEnabled?"ON":"OFF"}`;
+  renderAll();
+});
+document.getElementById("rrState").addEventListener("change",renderResidualRecognition);
+document.getElementById("rrTransport").addEventListener("change",renderResidualRecognition);
+document.getElementById("rrCycle").addEventListener("click",()=>{
+  const el=document.getElementById("rrTransport");
+  el.value=String((Number(el.value)+1)%8);
+  renderResidualRecognition();
+});
+document.getElementById("signalAdapter").addEventListener("change",renderSignalAdapter);
+document.getElementById("signalTolerance").addEventListener("input",renderSignalAdapter);
+
+// chunked startup: UI stays responsive; PLAY enables when the field is ready
+const ANGULAR_CHUNK=32;
+play.disabled=true;
+(function precomputeAngularAsync(row){
+  if(row>=RGRID_N){
+    angularReady=true;play.disabled=false;renderAll();return;
+  }
+  computeAngularRows(row,Math.min(RGRID_N,row+ANGULAR_CHUNK));
+  document.getElementById("stateReadout").textContent=
+    "precomputing angular carrier… "+Math.round(100*row/RGRID_N)+"%";
+  setTimeout(()=>precomputeAngularAsync(row+ANGULAR_CHUNK),0);
+})(0);
+</script>
+</body>
+</html>
+
